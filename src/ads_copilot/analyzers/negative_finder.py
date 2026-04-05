@@ -44,6 +44,8 @@ class Suggestion:
     cost_minor: int
     clicks: int
     conversions: float
+    source: str = "rule"  # "rule" | "ai"
+    confidence: str = "HIGH"
 
     def to_negative(self) -> NegativeKeyword:
         return NegativeKeyword(

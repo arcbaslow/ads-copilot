@@ -234,6 +234,7 @@ def queries(
     default="./ads_copilot.sqlite",
     help="SQLite path for snapshot history",
 )
+@click.option("--classify/--no-classify", default=False, help="Use AI for search-query classification")
 def audit(
     config: str,
     google: bool,
@@ -242,6 +243,7 @@ def audit(
     output: str | None,
     to_telegram: bool,
     db: str,
+    classify: bool,
 ) -> None:
     """Run spend, performance, and query audit checks."""
     cfg = _load(config)
@@ -255,6 +257,13 @@ def audit(
         platforms = _select_platforms(google, yandex)
         connectors = [_build_connector(cfg, p) for p in platforms]
         store = SnapshotStore(db)
+        classifier = None
+        if classify:
+            if not cfg.ai.enabled:
+                raise click.ClickException("ai.enabled is false in config")
+            from ads_copilot.ai.query_intent import QueryClassifier
+
+            classifier = QueryClassifier(cfg.ai, cfg.business)
         try:
             report = await run_audit(
                 cfg,
@@ -262,7 +271,16 @@ def audit(
                 date_range,
                 period_label=period,
                 store=store,
+                classifier=classifier,
             )
+            if classifier is not None:
+                s = classifier.stats
+                click.echo(
+                    f"ai: {s.queries_classified}/{s.queries_seen} classified "
+                    f"({s.batches} batches, {s.failures} failures, "
+                    f"{s.input_tokens + s.output_tokens} tokens)",
+                    err=True,
+                )
         finally:
             for c in connectors:
                 await c.close()

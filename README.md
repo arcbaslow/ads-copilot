@@ -104,7 +104,7 @@ delivery:
 
 - [x] v0.1 — Core connectors (Google Ads + Yandex Direct), CLI skeleton, data models
 - [x] v0.2 — Analyzers (spend pacing, anomaly detection, rule-based query filter), SQLite snapshots, Telegram delivery
-- [ ] v0.3 — AI search-query classification (Claude Haiku)
+- [x] v0.3 — AI search-query classification (Claude Haiku)
 - [ ] v0.4 — MCP server (FastMCP, 8 tools)
 - [ ] v0.5 — APScheduler + Airflow DAG + Docker compose
 - [ ] v1.0 — Slack/email delivery, multi-account agency mode, PyPI publish
