@@ -224,13 +224,70 @@ def queries(
 
 @main.command()
 @click.option("--config", "-c", default=DEFAULT_CONFIG)
+@click.option("--google/--no-google", default=True)
+@click.option("--yandex/--no-yandex", default=True)
 @click.option("--period", default="7d")
-def audit(config: str, period: str) -> None:
-    """Run all audit checks (not yet implemented in v0.1)."""
-    _load(config)
-    _parse_period(period)
-    click.echo("audit: coming in v0.2 (spend pacing + anomaly detection)")
-    raise SystemExit(0)
+@click.option("--output", "-o", default=None, help="Write markdown report to path")
+@click.option("--telegram", "to_telegram", is_flag=True, help="Send to Telegram")
+@click.option(
+    "--db",
+    default="./ads_copilot.sqlite",
+    help="SQLite path for snapshot history",
+)
+def audit(
+    config: str,
+    google: bool,
+    yandex: bool,
+    period: str,
+    output: str | None,
+    to_telegram: bool,
+    db: str,
+) -> None:
+    """Run spend, performance, and query audit checks."""
+    cfg = _load(config)
+    date_range = _parse_period(period)
+
+    async def _run() -> int:
+        from ads_copilot.audit import run_audit
+        from ads_copilot.reporters.formatters import format_markdown, format_telegram
+        from ads_copilot.storage import SnapshotStore
+
+        platforms = _select_platforms(google, yandex)
+        connectors = [_build_connector(cfg, p) for p in platforms]
+        store = SnapshotStore(db)
+        try:
+            report = await run_audit(
+                cfg,
+                connectors,
+                date_range,
+                period_label=period,
+                store=store,
+            )
+        finally:
+            for c in connectors:
+                await c.close()
+
+        md = format_markdown(report)
+        if output:
+            Path(output).write_text(md, encoding="utf-8")
+            click.echo(f"wrote {output}")
+        else:
+            click.echo(md)
+
+        if to_telegram:
+            if not cfg.delivery.telegram.enabled:
+                raise click.ClickException("delivery.telegram.enabled is false in config")
+            from ads_copilot.reporters.telegram import TelegramReporter
+
+            reporter = TelegramReporter.from_env(
+                cfg.delivery.telegram.bot_token_env,
+                cfg.delivery.telegram.chat_id,
+            )
+            await reporter.send(format_telegram(report))
+            click.echo("telegram: sent")
+        return 0
+
+    raise SystemExit(asyncio.run(_run()))
 
 
 # ---------------- helpers ----------------
