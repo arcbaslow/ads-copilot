@@ -23,7 +23,7 @@ def test_negative_exact_becomes_exact_suggestion() -> None:
     assert len(out) == 1
     assert out[0].match_type == MatchType.EXACT
     assert out[0].source == "ai"
-    assert "скачать приложение" == out[0].query
+    assert out[0].query == "скачать приложение"
     assert out[0].reason.startswith("ai:")
 
 

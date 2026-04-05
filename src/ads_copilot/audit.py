@@ -10,13 +10,14 @@ from datetime import date, timedelta
 
 from ads_copilot.ai.bridge import ai_to_suggestions
 from ads_copilot.ai.query_intent import QueryClassifier
-from ads_copilot.analyzers.alerts import Alert
+from ads_copilot.analyzers.alerts import Alert, Severity
 from ads_copilot.analyzers.negative_finder import (
     RuleBasedQueryFilter,
     Suggestion,
 )
-from ads_copilot.analyzers.performance import detect_anomalies
+from ads_copilot.analyzers.performance import detect_anomalies, within_conversion_lag
 from ads_copilot.analyzers.spend_checker import check_spend
+from ads_copilot.analyzers.structure_audit import audit_structure
 from ads_copilot.config import Config
 from ads_copilot.connectors.base import AdPlatformConnector
 from ads_copilot.models import CampaignData, DateRange, Platform, SearchQueryData
@@ -52,58 +53,49 @@ async def run_audit(
 
     rule_filter = RuleBasedQueryFilter(
         custom_patterns=cfg.negative_keywords.custom_patterns,
+        brand_patterns=cfg.negative_keywords.brand_patterns,
+        competitor_patterns=cfg.negative_keywords.competitor_patterns,
         min_impressions=cfg.rules.search_queries.min_impressions_for_review,
     )
 
+    skip_cpa = within_conversion_lag(period, cfg.rules.conversions)
+    if skip_cpa:
+        log.info(
+            "period ends within conversion_lag_hours (%d) — skipping CPA checks",
+            cfg.rules.conversions.conversion_lag_hours,
+        )
+
     for connector in connectors:
         log.info("auditing %s account %s", connector.platform.value, connector.account_id)
-        campaigns = await connector.get_campaigns(period)
-        campaigns_by_platform.setdefault(connector.platform, []).extend(campaigns)
-
-        # Spend pacing
-        spend_alerts = check_spend(campaigns, cfg.rules.spend, days_in_period=days)
-        all_alerts.extend(spend_alerts)
-
-        # Performance anomalies (requires snapshot history)
-        if store is not None:
-            store.write(connector.account_id, date.today(), campaigns)
-            prior_metrics = store.aggregate(
-                connector.platform, connector.account_id, prior.start, prior.end
+        try:
+            conn_alerts, conn_suggestions, conn_campaigns, conn_query_count = (
+                await _audit_one_connector(
+                    connector, cfg, period, days, prior, store,
+                    rule_filter, classifier, skip_cpa,
+                )
             )
-            if prior_metrics:
-                all_alerts.extend(
-                    detect_anomalies(campaigns, prior_metrics, cfg.rules.performance)
-                )
-            else:
-                log.info(
-                    "no prior snapshots for %s — skipping anomaly detection",
-                    connector.platform.value,
-                )
-
-        # Search queries
-        queries = await connector.get_search_queries(
-            period,
-            min_impressions=cfg.rules.search_queries.min_impressions_for_review,
-        )
-        queries_reviewed += len(queries)
-        rule_suggestions = rule_filter.classify(queries)
-        all_suggestions.extend(rule_suggestions)
-
-        # AI classification on what rules couldn't handle
-        if classifier is not None:
-            rule_flagged = {s.query for s in rule_suggestions}
-            candidates = _ai_candidates(
-                queries,
-                already_flagged=rule_flagged,
-                min_impressions=cfg.ai.classify_threshold_impressions,
+        except Exception as e:
+            log.exception(
+                "%s audit failed: %s", connector.platform.value, e
             )
-            if candidates:
-                log.info(
-                    "sending %d queries to AI classifier for %s",
-                    len(candidates), connector.platform.value,
+            all_alerts.append(
+                Alert(
+                    severity=Severity.CRITICAL,
+                    category="connector",
+                    platform=connector.platform,
+                    title=(
+                        f"{connector.platform.value.title()} audit failed: "
+                        f"{type(e).__name__}"
+                    ),
+                    detail=f"{e}. Remaining platforms continue normally.",
                 )
-                classified = classifier.classify(candidates)
-                all_suggestions.extend(ai_to_suggestions(classified))
+            )
+            continue
+
+        campaigns_by_platform.setdefault(connector.platform, []).extend(conn_campaigns)
+        all_alerts.extend(conn_alerts)
+        all_suggestions.extend(conn_suggestions)
+        queries_reviewed += conn_query_count
 
     all_alerts.sort(key=lambda a: a.sort_key())
     all_suggestions.sort(key=lambda s: -s.cost_minor)
@@ -117,6 +109,77 @@ async def run_audit(
         queries_reviewed=queries_reviewed,
         account_label=account_label,
     )
+
+
+async def _audit_one_connector(
+    connector: AdPlatformConnector,
+    cfg: Config,
+    period: DateRange,
+    days: int,
+    prior: DateRange,
+    store: SnapshotStore | None,
+    rule_filter: RuleBasedQueryFilter,
+    classifier: QueryClassifier | None,
+    skip_cpa: bool,
+) -> tuple[list[Alert], list[Suggestion], list[CampaignData], int]:
+    """Run the full analyzer stack for one connector. Returns
+    (alerts, suggestions, campaigns, queries_reviewed). Exceptions bubble
+    up so the caller can emit a connector-level failure alert."""
+    alerts: list[Alert] = []
+    suggestions: list[Suggestion] = []
+
+    campaigns = await connector.get_campaigns(period)
+
+    alerts.extend(check_spend(campaigns, cfg.rules.spend, days_in_period=days))
+
+    if store is not None:
+        store.write(connector.account_id, date.today(), campaigns)
+        prior_metrics = store.aggregate(
+            connector.platform, connector.account_id, prior.start, prior.end
+        )
+        if prior_metrics:
+            alerts.extend(
+                detect_anomalies(
+                    campaigns, prior_metrics, cfg.rules.performance,
+                    skip_cpa=skip_cpa,
+                )
+            )
+        else:
+            log.info(
+                "no prior snapshots for %s — skipping anomaly detection",
+                connector.platform.value,
+            )
+
+    # Structure audit — independent failure, don't let it kill the audit
+    try:
+        tree = await connector.get_campaign_structure()
+        alerts.extend(audit_structure(tree, cfg.rules.structure))
+    except Exception as e:
+        log.warning("structure audit failed for %s: %s", connector.platform.value, e)
+
+    queries = await connector.get_search_queries(
+        period,
+        min_impressions=cfg.rules.search_queries.min_impressions_for_review,
+    )
+    rule_suggestions = rule_filter.classify(queries)
+    suggestions.extend(rule_suggestions)
+
+    if classifier is not None:
+        rule_flagged = {s.query for s in rule_suggestions}
+        candidates = _ai_candidates(
+            queries,
+            already_flagged=rule_flagged,
+            min_impressions=cfg.ai.classify_threshold_impressions,
+        )
+        if candidates:
+            log.info(
+                "sending %d queries to AI classifier for %s",
+                len(candidates), connector.platform.value,
+            )
+            classified = classifier.classify(candidates)
+            suggestions.extend(ai_to_suggestions(classified))
+
+    return alerts, suggestions, campaigns, len(queries)
 
 
 def _ai_candidates(

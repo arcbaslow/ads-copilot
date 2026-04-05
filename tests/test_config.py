@@ -4,7 +4,6 @@ import pytest
 
 from ads_copilot.config import load_config
 
-
 MINIMAL = """
 accounts:
   yandex_direct:
@@ -27,9 +26,11 @@ def test_load_minimal_config(tmp_path: Path) -> None:
 
 
 def test_config_requires_at_least_one_account(tmp_path: Path) -> None:
+    from pydantic import ValidationError
+
     p = tmp_path / "c.yaml"
     p.write_text("business:\n  currency: USD\n", encoding="utf-8")
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError, match="at least one account"):
         load_config(p)
 
 

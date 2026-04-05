@@ -29,7 +29,7 @@ class SlackReporter:
     timeout: float = 30.0
 
     @classmethod
-    def from_env(cls, webhook_url_env: str) -> "SlackReporter":
+    def from_env(cls, webhook_url_env: str) -> SlackReporter:
         url = os.environ.get(webhook_url_env)
         if not url:
             raise SlackError(f"env var {webhook_url_env} is not set")

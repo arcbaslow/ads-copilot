@@ -1,4 +1,4 @@
-from ads_copilot.connectors.yandex_direct import _parse_tsv, _int, _float
+from ads_copilot.connectors.yandex_direct import _float, _int, _parse_tsv
 
 
 def test_parse_tsv_basic() -> None:

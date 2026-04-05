@@ -7,7 +7,6 @@ import pytest
 
 from ads_copilot.scheduler.job import JobOptions, run_scheduled_audit
 
-
 CONFIG_YAML = """
 accounts:
   yandex_direct:
@@ -31,10 +30,9 @@ delivery:
 @pytest.fixture
 def fake_yandex(monkeypatch: pytest.MonkeyPatch) -> None:
     """Swap the real Yandex connector enumeration for fakes with empty data."""
+    import ads_copilot.scheduler.job as job_module
     from ads_copilot.models import Platform
     from tests.fakes import FakeConnector
-
-    import ads_copilot.scheduler.job as job_module
 
     def _patched(cfg):  # type: ignore[no-untyped-def]
         out = []

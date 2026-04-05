@@ -6,9 +6,14 @@ CTR drops / CPC spikes / CPA spikes above configured thresholds.
 
 from __future__ import annotations
 
+import logging
+from datetime import datetime, timedelta
+
 from ads_copilot.analyzers.alerts import Alert, Severity
-from ads_copilot.config import PerformanceRules
-from ads_copilot.models import CampaignData, Metrics
+from ads_copilot.config import ConversionsRules, PerformanceRules
+from ads_copilot.models import CampaignData, DateRange, Metrics
+
+log = logging.getLogger(__name__)
 
 # Filter out campaigns with too little data — swings on tiny denominators
 # are noise, not signal.
@@ -16,12 +21,37 @@ MIN_IMPRESSIONS = 200
 MIN_CLICKS = 20
 
 
+def within_conversion_lag(
+    period: DateRange,
+    conversion_rules: ConversionsRules,
+    now: datetime | None = None,
+) -> bool:
+    """Return True if the period ends too recently to trust conversion data.
+
+    Conversions lag by hours (Google) or can take up to 30 days (Yandex
+    offline conversions). Running CPA comparisons against an incomplete
+    conversion signal produces false alerts.
+    """
+    now = now or datetime.now()
+    # Treat the period end as end-of-day
+    period_end = datetime.combine(
+        period.end, datetime.min.time()
+    ) + timedelta(days=1)
+    return (now - period_end) < timedelta(hours=conversion_rules.conversion_lag_hours)
+
+
 def detect_anomalies(
     current: list[CampaignData],
     prior: dict[str, Metrics],
     rules: PerformanceRules,
+    *,
+    skip_cpa: bool = False,
 ) -> list[Alert]:
-    """Compare each current-period campaign to its prior-period aggregate."""
+    """Compare each current-period campaign to its prior-period aggregate.
+
+    If skip_cpa is True, CPA-spike checks are skipped — use this when the
+    current period hasn't passed the conversion-reporting lag window.
+    """
     alerts: list[Alert] = []
 
     for c in current:
@@ -62,7 +92,8 @@ def detect_anomalies(
 
         # CPA spike
         if (
-            prev.conversions > 0
+            not skip_cpa
+            and prev.conversions > 0
             and cur.conversions > 0
             and prev.cpa_minor > 0
         ):

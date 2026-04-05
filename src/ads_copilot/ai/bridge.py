@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ads_copilot.ai.query_intent import ClassifiedQuery, Classification
+from ads_copilot.ai.query_intent import Classification, ClassifiedQuery
 from ads_copilot.analyzers.negative_finder import Suggestion
 from ads_copilot.models import MatchType
 

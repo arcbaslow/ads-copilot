@@ -134,6 +134,8 @@ class Rules(BaseModel):
 class NegativeKeywordsConfig(BaseModel):
     existing_shared_lists: dict[str, list[str]] = Field(default_factory=dict)
     custom_patterns: list[str] = Field(default_factory=list)
+    brand_patterns: list[str] = Field(default_factory=list)
+    competitor_patterns: list[str] = Field(default_factory=list)
 
 
 class Config(BaseModel):
@@ -148,7 +150,7 @@ class Config(BaseModel):
     )
 
     @model_validator(mode="after")
-    def at_least_one_account(self) -> "Config":
+    def at_least_one_account(self) -> Config:
         if not self.accounts.google_ads and not self.accounts.yandex_direct:
             raise ValueError("config must declare at least one account")
         return self

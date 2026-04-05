@@ -7,11 +7,11 @@ on demand.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Iterator
 
 from ads_copilot.models import CampaignData, Metrics, Platform
 

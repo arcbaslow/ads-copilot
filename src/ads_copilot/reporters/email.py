@@ -40,7 +40,7 @@ class EmailReporter:
         smtp_password_env: str,
         from_addr: str,
         to: list[str],
-    ) -> "EmailReporter":
+    ) -> EmailReporter:
         user = os.environ.get(smtp_user_env)
         password = os.environ.get(smtp_password_env)
         if not user or not password:

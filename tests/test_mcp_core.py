@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from ads_copilot.config import Config, AccountsConfig, YandexDirectAccount, BusinessConfig
+from ads_copilot.config import AccountsConfig, BusinessConfig, Config, YandexDirectAccount
 from ads_copilot.mcp import core
 from ads_copilot.mcp.registry import StaticRegistry
 from ads_copilot.models import (

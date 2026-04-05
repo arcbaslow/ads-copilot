@@ -303,10 +303,10 @@ async def get_spend_pacing(
         campaigns = await connector.get_campaigns(date_range)
         pacing_rows = []
         for c in campaigns:
-            if c.daily_budget_minor:
-                pct = c.metrics.cost_minor / c.daily_budget_minor
-            else:
-                pct = None
+            pct = (
+                c.metrics.cost_minor / c.daily_budget_minor
+                if c.daily_budget_minor else None
+            )
             pacing_rows.append(
                 {
                     "campaign_id": c.id,

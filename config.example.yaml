@@ -81,7 +81,14 @@ negative_keywords:
   existing_shared_lists:
     google: ["Main Negatives"]
     yandex: ["Минус-слова общие"]
+  # Own brand — queries matching these are NEVER negated, even if they
+  # also trigger noise patterns ("halyk отзывы" stays targeted)
+  brand_patterns:
+    - "\\b(halyk|халык)\\b"
+  # Competitor brand names — flagged as "competitor" category for review
+  competitor_patterns:
+    - "\\b(kaspi|каспи|хоум кредит|jusan)\\b"
+  # Extra account-specific patterns layered onto the built-in rules
   custom_patterns:
     - "(работа|вакансия|job|career)"
     - "(скачать|download|torrent)"
-    - "(отзывы|review|reddit)"

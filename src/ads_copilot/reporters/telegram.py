@@ -27,7 +27,7 @@ class TelegramReporter:
     timeout: float = 30.0
 
     @classmethod
-    def from_env(cls, bot_token_env: str, chat_id: str) -> "TelegramReporter":
+    def from_env(cls, bot_token_env: str, chat_id: str) -> TelegramReporter:
         token = os.environ.get(bot_token_env)
         if not token:
             raise TelegramError(f"env var {bot_token_env} is not set")

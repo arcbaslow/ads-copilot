@@ -64,6 +64,8 @@ class RuleBasedQueryFilter:
     def __init__(
         self,
         custom_patterns: list[str] | None = None,
+        brand_patterns: list[str] | None = None,
+        competitor_patterns: list[str] | None = None,
         min_impressions: int = 5,
     ) -> None:
         self.min_impressions = min_impressions
@@ -71,6 +73,16 @@ class RuleBasedQueryFilter:
             (cat, re.compile(src, re.IGNORECASE | re.UNICODE))
             for cat, src in BUILTIN_PATTERNS
         ]
+        # Brand patterns are layered on so queries containing the advertiser's
+        # own brand terms are classified as BRAND (not negated). We capture
+        # them by matching but returning None — see _first_match below.
+        self._brand_patterns = [
+            re.compile(p, re.IGNORECASE | re.UNICODE) for p in (brand_patterns or [])
+        ]
+        for p in competitor_patterns or []:
+            self._patterns.append(
+                ("competitor", re.compile(p, re.IGNORECASE | re.UNICODE))
+            )
         for p in custom_patterns or []:
             self._patterns.append(
                 ("custom", re.compile(p, re.IGNORECASE | re.UNICODE))
@@ -108,6 +120,11 @@ class RuleBasedQueryFilter:
         return out
 
     def _first_match(self, text: str) -> str | None:
+        # Own-brand queries are never negated, even if they also trigger
+        # a noise pattern ("Halyk отзывы" should stay targeted).
+        for pat in self._brand_patterns:
+            if pat.search(text):
+                return None
         for cat, pat in self._patterns:
             if pat.search(text):
                 return cat

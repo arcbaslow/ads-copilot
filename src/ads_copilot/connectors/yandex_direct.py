@@ -19,6 +19,7 @@ from typing import Any
 import httpx
 
 from ads_copilot.connectors.base import ConnectorError
+from ads_copilot.connectors.retry import RetryPolicy, retry_http
 from ads_copilot.models import (
     AdGroupData,
     CampaignData,
@@ -85,6 +86,8 @@ class YandexConfig:
     request_timeout: float = 60.0
     report_poll_interval_cap: float = 30.0
     report_max_attempts: int = 60
+    retry_max_attempts: int = 4
+    retry_base_delay: float = 1.0
 
 
 class YandexDirectError(ConnectorError):
@@ -104,6 +107,10 @@ class YandexDirectConnector:
         self._base = SANDBOX_BASE if config.sandbox else API_BASE
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(timeout=config.request_timeout)
+        self._retry_policy = RetryPolicy(
+            max_attempts=config.retry_max_attempts,
+            base_delay=config.retry_base_delay,
+        )
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -130,7 +137,11 @@ class YandexDirectConnector:
     async def _call(self, service: str, method: str, params: dict[str, Any]) -> dict[str, Any]:
         url = f"{self._base}/{service}"
         body = {"method": method, "params": params}
-        resp = await self._client.post(url, json=body, headers=self._headers)
+        resp = await retry_http(
+            lambda: self._client.post(url, json=body, headers=self._headers),
+            policy=self._retry_policy,
+            description=f"yandex {service}.{method}",
+        )
         if resp.status_code != 200:
             raise YandexDirectError(
                 f"{service}.{method} returned HTTP {resp.status_code}: {resp.text}",
@@ -153,7 +164,13 @@ class YandexDirectConnector:
         url = f"{self._base}/reports"
         attempts = 0
         while attempts < self.config.report_max_attempts:
-            resp = await self._client.post(url, json=report_body, headers=self._report_headers)
+            resp = await retry_http(
+                lambda: self._client.post(
+                    url, json=report_body, headers=self._report_headers,
+                ),
+                policy=self._retry_policy,
+                description="yandex reports",
+            )
             if resp.status_code == 200:
                 return _parse_tsv(resp.text)
             if resp.status_code in (201, 202):

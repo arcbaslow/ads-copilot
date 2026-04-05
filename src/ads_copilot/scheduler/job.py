@@ -108,7 +108,8 @@ def _enumerate_accounts(cfg: Config) -> list[tuple[str, AdPlatformConnector]]:
     out: list[tuple[str, AdPlatformConnector]] = []
     for g in cfg.accounts.google_ads:
         from ads_copilot.connectors.google_ads import (
-            GoogleAdsConfig, GoogleAdsConnector,
+            GoogleAdsConfig,
+            GoogleAdsConnector,
         )
         out.append(
             (
@@ -125,7 +126,8 @@ def _enumerate_accounts(cfg: Config) -> list[tuple[str, AdPlatformConnector]]:
         )
     for y in cfg.accounts.yandex_direct:
         from ads_copilot.connectors.yandex_direct import (
-            YandexConfig, YandexDirectConnector,
+            YandexConfig,
+            YandexDirectConnector,
         )
         out.append(
             (
@@ -218,4 +220,4 @@ def _slugify(text: str) -> str:
     return "".join(c for c in s if c in allowed).strip("-") or "account"
 
 
-__all__ = ["JobOptions", "JobResult", "AccountResult", "run_scheduled_audit"]
+__all__ = ["AccountResult", "JobOptions", "JobResult", "run_scheduled_audit"]
