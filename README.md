@@ -56,7 +56,7 @@ ads-copilot schedule     # run the cron-based daemon (APScheduler)
 
 ## Testing against sandbox APIs
 
-Unit tests cover branching logic. For schema drift and real auth behavior, run integration tests against sandbox environments — see [`docs/SANDBOX.md`](docs/SANDBOX.md).
+Unit tests cover branching logic. For schema drift and real auth behavior, run integration tests against sandbox/test environments — see [`docs/SANDBOX.md`](docs/SANDBOX.md).
 
 ```bash
 # Unit tests (default, no network)
@@ -68,6 +68,8 @@ pytest tests/integration/ -v -m integration
 # Human-readable smoke walkthrough
 python scripts/smoke.py both
 ```
+
+> **Heads-up:** Yandex Direct API sandbox registration is gated behind Gosuslugi verification (yandex.ru) or unavailable entirely (yandex.com) for non-CIS accounts. If you can't access the sandbox, use an existing agency/client token against a low-traffic production account. See `docs/SANDBOX.md` for details.
 
 ## Deployment
 

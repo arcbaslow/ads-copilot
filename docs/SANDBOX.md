@@ -8,40 +8,32 @@ Integration tests are **skipped by default** (they're marked with `@pytest.mark.
 
 ## Yandex Direct sandbox
 
-Yandex hosts a full sandbox at `api-sandbox.direct.yandex.com`. It mirrors the production API but uses fake data and never spends real money.
+Yandex hosts a full sandbox at `api-sandbox.direct.yandex.com`. It mirrors the production API, uses fake data, and never spends real money. The catch is **getting a sandbox token is non-trivial** for anyone outside Russia.
 
-### 1. Get a sandbox token
+### Access restrictions (read this first)
 
-1. Go to https://oauth.yandex.com/client/new and create an app.
-2. Under **Platforms**, add a web service with callback URL `https://oauth.yandex.com/verification_code`.
-3. Under **Permissions**, select **Yandex Direct API — использование API Яндекс.Директа**.
-4. Save and note the **ClientID**.
-5. Open `https://oauth.yandex.com/authorize?response_type=token&client_id=<YOUR_CLIENT_ID>` in your browser, approve the permissions, and copy the token from the URL fragment.
+As of 2024, registering a new OAuth app with the `direct:api` scope on Yandex is gated behind:
 
-The same token works for both production and sandbox — the sandbox flag on the connector just swaps the base URL.
+- **yandex.ru**: requires Gosuslugi (Russian government ID) verification — effectively only accessible to Russian citizens / legal entities.
+- **yandex.com**: the `direct:api` scope is not offered at all in the permission picker for non-CIS accounts.
 
-### 2. Populate sandbox with fake campaigns
+If you're outside Russia, there are two realistic paths:
 
-Sandbox accounts start empty. Yandex provides a UI at https://direct.yandex.ru/sandbox to create campaigns, ad groups, keywords, and simulate impressions/clicks. Create at least one campaign with a few adgroups and run a simulation so reports return non-empty data.
+1. **Use a production token from an agency/client account you already manage.** The connector supports agency mode (`client_login` header) out of the box. Set `sandbox: false` in the config and point tests at a real account — preferably a low-traffic one where read-only GAQL-equivalent queries are safe. Skip the `add_negative_keywords` dry-run test just to be safe.
+2. **Defer sandbox testing to first real engagement.** The connector is unit-tested at the parsing layer (TSV BOM, minor-unit arithmetic, null handling, report-polling state machine). The remaining failure modes are predictable — schema drift, auth edge cases, rate limits — and surface loudly at first real use. This is the path taken in this repo until access is resolved.
 
-### 3. Export env vars
+### If you do have access
 
-```bash
-export YANDEX_SANDBOX_TOKEN="y0_xxx..."
-export YANDEX_SANDBOX_LOGIN="your-yandex-login"
-```
-
-### 4. Run the tests
-
-```bash
-pytest tests/integration/test_yandex_sandbox.py -v -m integration
-```
-
-Or use the smoke script for a human-readable walkthrough:
-
-```bash
-python scripts/smoke.py yandex
-```
+1. Register an OAuth app at https://oauth.yandex.ru/client/new with the `direct:api` scope and callback URL `https://oauth.yandex.ru/verification_code`.
+2. Open `https://oauth.yandex.ru/authorize?response_type=token&client_id=<YOUR_CLIENT_ID>`, approve, and copy the token from the URL fragment.
+3. Populate sandbox with fake data at https://direct.yandex.ru/sandbox — log in with the same account, create one campaign with a couple of adgroups and keywords, and run the simulation so reports return non-empty data.
+4. Export env vars and run the tests:
+   ```bash
+   export YANDEX_SANDBOX_TOKEN="y0_xxx..."
+   export YANDEX_SANDBOX_LOGIN="your-yandex-login"
+   pytest tests/integration/test_yandex_sandbox.py -v -m integration
+   python scripts/smoke.py yandex
+   ```
 
 ---
 
@@ -117,10 +109,14 @@ python scripts/smoke.py both
 
 ## Troubleshooting
 
-**Yandex report polling hangs:** sandbox sometimes takes 30–60s to generate reports. The connector retries up to 60 times with the `retryIn` hint from Yandex. If you're hitting the cap, check the sandbox UI — reports can fail silently if the campaign has no data at all.
+**Yandex `Unknown client with such client_id`** on the authorize URL: the client ID in the URL doesn't match a real registered app. You need to create your own OAuth app — there are no shared public client IDs for Direct API.
 
-**Google `AuthenticationError.NOT_ADS_USER`:** the login_customer_id in `google-ads.yaml` must be the MCC (manager) that the test child account lives under, not the child account itself.
+**Yandex OAuth scope picker doesn't list Direct API:** on `yandex.com`, the scope isn't available to non-CIS accounts at all. On `yandex.ru`, creating a new app with Direct permissions requires Gosuslugi verification. See the "Access restrictions" section above.
 
-**Google `USER_PERMISSION_DENIED`:** the OAuth-generating Google account needs Admin access to the test MCC.
+**Yandex report polling hangs:** reports sometimes take 30–60s to generate. The connector retries up to 60 times with the `retryIn` hint from Yandex. If you're hitting the cap, check the web UI — reports can fail silently if the campaign has no data at all.
 
 **Yandex returns 429:** sandbox rate limits are lower than production. Back off and retry.
+
+**Google `AuthenticationError.NOT_ADS_USER`:** the `login_customer_id` in `google-ads.yaml` must be the MCC (manager) that the test child account lives under, not the child account itself.
+
+**Google `USER_PERMISSION_DENIED`:** the OAuth-generating Google account needs Admin access to the test MCC.
