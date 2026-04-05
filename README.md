@@ -51,7 +51,19 @@ ads-copilot spend        # current spend vs budget
 ads-copilot audit        # run all checks, return alerts
 ads-copilot queries      # pull search terms, optionally classify with AI
 ads-copilot structure    # dump campaign/adgroup hierarchy
+ads-copilot schedule     # run the cron-based daemon (APScheduler)
 ```
+
+## Deployment
+
+**Docker Compose** (see [`docker/README.md`](docker/README.md)):
+
+```bash
+cd docker
+docker compose up -d --build
+```
+
+**Airflow**: drop [`dags/ads_copilot_dag.py`](dags/ads_copilot_dag.py) into your Airflow `dags/` folder.
 
 ## MCP server
 
@@ -108,7 +120,7 @@ delivery:
 - [x] v0.2 — Analyzers (spend pacing, anomaly detection, rule-based query filter), SQLite snapshots, Telegram delivery
 - [x] v0.3 — AI search-query classification (Claude Haiku)
 - [x] v0.4 — MCP server (FastMCP, 8 tools)
-- [ ] v0.5 — APScheduler + Airflow DAG + Docker compose
+- [x] v0.5 — APScheduler + Airflow DAG + Docker compose
 - [ ] v1.0 — Slack/email delivery, multi-account agency mode, PyPI publish
 
 ## License

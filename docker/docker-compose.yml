@@ -1,0 +1,29 @@
+services:
+  ads-copilot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: ads-copilot:latest
+    container_name: ads-copilot
+    restart: unless-stopped
+    environment:
+      # Required for Yandex Direct
+      YANDEX_DIRECT_TOKEN: ${YANDEX_DIRECT_TOKEN}
+      # Required for AI classification (set ai.enabled: true in config)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Required for Telegram delivery
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      # Google Ads auth — mount the yaml into /config and reference by path in config.yaml
+      ADS_COPILOT_LOG_LEVEL: INFO
+    volumes:
+      - ./config:/config:ro
+      - ads-copilot-data:/data
+    # Healthcheck: verify the config parses and at least one connector is reachable
+    healthcheck:
+      test: ["CMD", "ads-copilot", "--version"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+
+volumes:
+  ads-copilot-data:

@@ -224,6 +224,28 @@ def queries(
 
 @main.command()
 @click.option("--config", "-c", default=DEFAULT_CONFIG)
+@click.option(
+    "--db", default="./ads_copilot.sqlite", help="SQLite path for snapshot history"
+)
+@click.option("--classify/--no-classify", default=False, help="Enable AI classification")
+def schedule(config: str, db: str, classify: bool) -> None:
+    """Run the cron-based audit daemon (APScheduler)."""
+
+    async def _run() -> int:
+        from ads_copilot.scheduler.cron import CronDaemon
+
+        daemon = CronDaemon(config_path=config, db_path=db, classify=classify)
+        try:
+            await daemon.run()
+        except KeyboardInterrupt:
+            pass
+        return 0
+
+    raise SystemExit(asyncio.run(_run()))
+
+
+@main.command()
+@click.option("--config", "-c", default=DEFAULT_CONFIG)
 @click.option("--google/--no-google", default=True)
 @click.option("--yandex/--no-yandex", default=True)
 @click.option("--period", default="7d")
