@@ -1,0 +1,79 @@
+# ads-copilot example config
+# Copy this to config.yaml and edit. Keep secrets in env vars.
+
+accounts:
+  google_ads:
+    - name: "Main"
+      customer_id: "123-456-7890"          # without MCC prefix
+      credentials_file: "./google-ads.yaml" # developer_token, client_id/secret, refresh_token
+      # login_customer_id: "111-222-3333"   # MCC ID, if accessing through a manager
+      currency: "USD"
+
+  yandex_direct:
+    - name: "Main"
+      login: "my-yandex-login"
+      token_env: "YANDEX_DIRECT_TOKEN"
+      # agency: uncomment the two below
+      # client_login: "client-login-name"
+      sandbox: false
+      currency: "RUB"
+
+business:
+  type: fintech                              # fintech | ecommerce | lead_gen | saas | other
+  product_description: "Consumer loans and credit cards for individuals"
+  target_audience: "Adults 25-55 in Kazakhstan looking for personal financing"
+  currency: KZT
+  conversion_name: "loan_application_submitted"
+
+schedule:
+  enabled: false
+  cron: "0 8 * * *"
+  timezone: "Asia/Almaty"
+
+delivery:
+  telegram:
+    enabled: false
+    bot_token_env: "TELEGRAM_BOT_TOKEN"
+    chat_id: "-1001234567890"
+  slack:
+    enabled: false
+    webhook_url_env: "SLACK_WEBHOOK_URL"
+  markdown:
+    enabled: true
+    output_dir: "./reports"
+
+ai:
+  enabled: false
+  model: "claude-haiku-4-5-20251001"
+  api_key_env: "ANTHROPIC_API_KEY"
+  max_queries_per_batch: 100
+  classify_threshold_impressions: 5
+
+rules:
+  spend:
+    daily_budget_pacing_threshold: 0.2
+    zero_spend_campaigns_alert: true
+  performance:
+    ctr_drop_threshold: 0.3
+    cpc_spike_threshold: 0.5
+    cpa_spike_threshold: 0.4
+    quality_score_min: 5
+  conversions:
+    zero_conversion_days: 3
+    conversion_lag_hours: 48
+  structure:
+    max_keywords_per_adgroup: 20
+    min_ads_per_adgroup: 2
+    single_keyword_adgroups: "warn"
+  search_queries:
+    min_impressions_for_review: 5
+    high_spend_no_conversion_threshold: 50
+
+negative_keywords:
+  existing_shared_lists:
+    google: ["Main Negatives"]
+    yandex: ["Минус-слова общие"]
+  custom_patterns:
+    - "(работа|вакансия|job|career)"
+    - "(скачать|download|torrent)"
+    - "(отзывы|review|reddit)"
