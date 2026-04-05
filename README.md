@@ -63,13 +63,15 @@ Add to Claude Desktop config:
     "ads-copilot": {
       "command": "ads-copilot-mcp",
       "env": {
-        "GOOGLE_ADS_CREDENTIALS": "/path/to/google-ads.yaml",
+        "ADS_COPILOT_CONFIG": "/path/to/config.yaml",
         "YANDEX_DIRECT_TOKEN": "y0_xxx"
       }
     }
   }
 }
 ```
+
+Exposes 8 tools: `get_performance_summary`, `get_search_queries`, `get_negative_suggestions`, `apply_negatives` (dry-run default), `get_campaign_structure`, `get_alerts`, `get_spend_pacing`, `compare_platforms`.
 
 Then ask: *"How did my Google Ads and Yandex campaigns perform yesterday? Any search queries I should negate?"*
 
@@ -105,7 +107,7 @@ delivery:
 - [x] v0.1 — Core connectors (Google Ads + Yandex Direct), CLI skeleton, data models
 - [x] v0.2 — Analyzers (spend pacing, anomaly detection, rule-based query filter), SQLite snapshots, Telegram delivery
 - [x] v0.3 — AI search-query classification (Claude Haiku)
-- [ ] v0.4 — MCP server (FastMCP, 8 tools)
+- [x] v0.4 — MCP server (FastMCP, 8 tools)
 - [ ] v0.5 — APScheduler + Airflow DAG + Docker compose
 - [ ] v1.0 — Slack/email delivery, multi-account agency mode, PyPI publish
 
