@@ -1,0 +1,53 @@
+name: Integration tests
+
+# Manual-dispatch only. Uses repo secrets — don't run on PRs from forks.
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Which platform to test"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - yandex
+          - google
+          - both
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,ai]"
+
+      - name: Write google-ads.yaml
+        if: ${{ inputs.platform != 'yandex' }}
+        env:
+          GOOGLE_ADS_YAML: ${{ secrets.GOOGLE_ADS_YAML }}
+        run: |
+          printf '%s' "$GOOGLE_ADS_YAML" > google-ads.yaml
+
+      - name: Run Yandex integration tests
+        if: ${{ inputs.platform != 'google' }}
+        env:
+          YANDEX_SANDBOX_TOKEN: ${{ secrets.YANDEX_SANDBOX_TOKEN }}
+          YANDEX_SANDBOX_LOGIN: ${{ secrets.YANDEX_SANDBOX_LOGIN }}
+        run: pytest tests/integration/test_yandex_sandbox.py -v -m integration
+
+      - name: Run Google Ads integration tests
+        if: ${{ inputs.platform != 'yandex' }}
+        env:
+          GOOGLE_ADS_TEST_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_TEST_CUSTOMER_ID }}
+          GOOGLE_ADS_CREDENTIALS_FILE: ./google-ads.yaml
+        run: pytest tests/integration/test_google_sandbox.py -v -m integration

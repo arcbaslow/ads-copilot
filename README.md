@@ -54,6 +54,21 @@ ads-copilot structure    # dump campaign/adgroup hierarchy
 ads-copilot schedule     # run the cron-based daemon (APScheduler)
 ```
 
+## Testing against sandbox APIs
+
+Unit tests cover branching logic. For schema drift and real auth behavior, run integration tests against sandbox environments — see [`docs/SANDBOX.md`](docs/SANDBOX.md).
+
+```bash
+# Unit tests (default, no network)
+pytest
+
+# Integration tests (hits Yandex sandbox + Google test account)
+pytest tests/integration/ -v -m integration
+
+# Human-readable smoke walkthrough
+python scripts/smoke.py both
+```
+
 ## Deployment
 
 **Docker Compose** (see [`docker/README.md`](docker/README.md)):
