@@ -30,26 +30,28 @@ delivery:
 
 @pytest.fixture
 def fake_yandex(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Swap the real Yandex connector for a fake that returns empty data."""
+    """Swap the real Yandex connector enumeration for fakes with empty data."""
     from ads_copilot.models import Platform
     from tests.fakes import FakeConnector
 
-    def _make_fake(config):  # type: ignore[no-untyped-def]
-        return FakeConnector(
-            platform=Platform.YANDEX,
-            account_id=config.login,
-            currency=config.currency,
-        )
-
     import ads_copilot.scheduler.job as job_module
-    original = job_module._build_connectors
 
     def _patched(cfg):  # type: ignore[no-untyped-def]
-        if not cfg.accounts.yandex_direct:
-            return []
-        return [_make_fake(cfg.accounts.yandex_direct[0])]
+        out = []
+        for y in cfg.accounts.yandex_direct:
+            out.append(
+                (
+                    f"{y.name} (Yandex)",
+                    FakeConnector(
+                        platform=Platform.YANDEX,
+                        account_id=y.login,
+                        currency=y.currency,
+                    ),
+                )
+            )
+        return out
 
-    monkeypatch.setattr(job_module, "_build_connectors", _patched)
+    monkeypatch.setattr(job_module, "_enumerate_accounts", _patched)
     monkeypatch.setenv("FAKE_TOKEN", "fake-token-value")
     return None
 
@@ -71,13 +73,17 @@ async def test_run_scheduled_audit_writes_markdown(
             period_days=1,
         )
     )
-    assert result.alerts == 0  # no data -> no alerts
-    assert result.queries_reviewed == 0
-    assert "markdown" in result.delivered
+    assert len(result.accounts) == 1
+    account = result.accounts[0]
+    assert account.alerts == 0  # no data -> no alerts
+    assert account.queries_reviewed == 0
+    assert "markdown" in account.delivered
+    assert "main" in account.account.lower()
     md_files = list(out_dir.glob("audit-*.md"))
     assert len(md_files) == 1
     content = md_files[0].read_text(encoding="utf-8")
     assert "Ads Report" in content
+    assert "main" in content.lower()  # account label in title
 
 
 async def test_run_scheduled_audit_no_connectors(
@@ -85,7 +91,7 @@ async def test_run_scheduled_audit_no_connectors(
 ) -> None:
     import ads_copilot.scheduler.job as job_module
 
-    monkeypatch.setattr(job_module, "_build_connectors", lambda cfg: [])
+    monkeypatch.setattr(job_module, "_enumerate_accounts", lambda cfg: [])
     monkeypatch.setenv("FAKE_TOKEN", "x")
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
@@ -96,5 +102,5 @@ async def test_run_scheduled_audit_no_connectors(
     result = await run_scheduled_audit(
         JobOptions(config_path=str(config_path), db_path=str(tmp_path / "db.sqlite"))
     )
-    assert result.alerts == 0
-    assert result.delivered == []
+    assert result.accounts == []
+    assert result.total_alerts == 0

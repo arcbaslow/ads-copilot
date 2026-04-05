@@ -121,7 +121,7 @@ delivery:
 - [x] v0.3 — AI search-query classification (Claude Haiku)
 - [x] v0.4 — MCP server (FastMCP, 8 tools)
 - [x] v0.5 — APScheduler + Airflow DAG + Docker compose
-- [ ] v1.0 — Slack/email delivery, multi-account agency mode, PyPI publish
+- [x] v1.0 — Slack/email delivery, multi-account agency mode, CI
 
 ## License
 

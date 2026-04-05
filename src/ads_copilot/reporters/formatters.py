@@ -18,6 +18,7 @@ class AuditReport:
     alerts: list[Alert]
     negative_suggestions: list[Suggestion]
     queries_reviewed: int = 0
+    account_label: str | None = None
 
 
 def _money(minor: int, currency: str) -> str:
@@ -27,10 +28,13 @@ def _money(minor: int, currency: str) -> str:
 def format_telegram(report: AuditReport) -> str:
     """Render an audit report as a Telegram message (HTML parse mode)."""
     lines: list[str] = []
-    lines.append(
+    header = (
         f"📊 <b>Ads Report</b> | {report.report_date.strftime('%b %d, %Y')} "
         f"({report.period_label})"
     )
+    if report.account_label:
+        header += f" — {report.account_label}"
+    lines.append(header)
     lines.append("")
 
     # Spend section
@@ -89,10 +93,13 @@ def format_telegram(report: AuditReport) -> str:
 def format_markdown(report: AuditReport) -> str:
     """Render an audit report as markdown."""
     lines: list[str] = []
-    lines.append(
+    title = (
         f"# Ads Report — {report.report_date.strftime('%b %d, %Y')} "
         f"({report.period_label})"
     )
+    if report.account_label:
+        title += f" — {report.account_label}"
+    lines.append(title)
     lines.append("")
 
     if report.campaigns_by_platform:

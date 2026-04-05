@@ -37,6 +37,7 @@ async def run_audit(
     period_label: str,
     store: SnapshotStore | None = None,
     classifier: QueryClassifier | None = None,
+    account_label: str | None = None,
 ) -> AuditReport:
     days = (period.end - period.start).days + 1
     prior = DateRange(
@@ -114,6 +115,7 @@ async def run_audit(
         alerts=all_alerts,
         negative_suggestions=all_suggestions,
         queries_reviewed=queries_reviewed,
+        account_label=account_label,
     )
 
 

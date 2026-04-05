@@ -38,6 +38,14 @@ delivery:
   slack:
     enabled: false
     webhook_url_env: "SLACK_WEBHOOK_URL"
+  email:
+    enabled: false
+    smtp_host: "smtp.sendgrid.net"
+    smtp_port: 587
+    smtp_user_env: "SMTP_USER"
+    smtp_password_env: "SMTP_PASSWORD"
+    from_addr: "ads-copilot@example.com"
+    to: ["marketing@example.com"]
   markdown:
     enabled: true
     output_dir: "./reports"
